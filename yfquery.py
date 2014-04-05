@@ -1,7 +1,7 @@
-from datetime import datetime
+import datetime
 import urllib.request
 import simplejson as json
-from prettytable import PrettyTable
+import prettytable
 
 def getAnalystEstimates(stockTicker):
     """
@@ -77,7 +77,7 @@ def dumpDataTable(resultList):
     Dump data into a PrettyTable
     """
     
-    table = PrettyTable([
+    table = prettytable.PrettyTable([
          "Ticker", 
          "Closing Price", 
          "Market Cap (B)", 
@@ -102,11 +102,12 @@ def dumpDataTable(resultList):
             stock["ROA"],
             stock["ROE"]
         ])    
-    print(table)
+    print(table.get_string(sortby="Ticker"))
+ 
     
     
 if __name__ == "__main__":
-    now = datetime.now()
+    now = datetime.datetime.now()
     print ("Running at time: " + str(now) + "\n")
     
     stockList = ["CRM", "WAGE", "YELP", "WDAY"]
