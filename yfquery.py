@@ -6,9 +6,10 @@ import prettytable
 class YFQuery:
     YFQUERY_DEBUG = False
     
-    def __init__(self, stockTickerList):
+    def __init__(self, stockTickerList, verbose):
         self.stockTickerList = stockTickerList
         self.resultList = []
+        YFQuery.YFQUERY_DEBUG = verbose
         
         
     def __fetch(self, url):
