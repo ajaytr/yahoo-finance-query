@@ -68,7 +68,12 @@ class YFQuery:
         
         url = "http://query.yahooapis.com/v1/public/yql?q=SELECT%20*%20FROM%20yahoo.finance.analystestimate%20WHERE%20symbol%3D'{0}'&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=".format(stockTicker)
         data = self.__fetch(url)
-        return data["query"]["results"]["results"]
+        try:
+            if "results" in data["query"]["results"]:
+                return data["query"]["results"]["results"]
+        except:
+            print("Problem acquiring Analyst Estimates for", stockTicker)
+            return None
     
     
     def requestKeyStatistics(self, stockTicker):
@@ -76,7 +81,12 @@ class YFQuery:
     
         url = "http://query.yahooapis.com/v1/public/yql?q=SELECT%20*%20FROM%20yahoo.finance.keystats%20WHERE%20symbol%3D'{0}'&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=".format(stockTicker)
         data = self.__fetch(url)
-        return data["query"]["results"]["stats"]
+        try:
+            if "stats" in data["query"]["results"]:
+                return data["query"]["results"]["stats"]
+        except:
+            print("Problem acquiring Key Statistics for", stockTicker)
+            return None
 
 
     def requestQuoteData(self, stockTicker):
@@ -84,18 +94,26 @@ class YFQuery:
         
         url = "http://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20yahoo.finance.quote%20where%20symbol%3D'{0}'&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=".format(stockTicker)
         data = self.__fetch(url)
-        return data["query"]["results"]["quote"]
+        try:
+            if "quote" in data["query"]["results"]:
+                return data["query"]["results"]["quote"]
+        except:
+            print("Problem acquiring Quote Data for", stockTicker)
+            return None
     
     
     def acquireAllData(self):
         """ Wrapper function for all the other data aquisition functions """
-        
+                
         for ticker in self.stockTickerList:
             print("Acquiring data for: ", ticker) if YFQuery.YFQUERY_DEBUG else 0
 
             estimates = self.requestAnalystEstimates(ticker)
             statistics = self.requestKeyStatistics(ticker)
             quote = self.requestQuoteData(ticker)
+            if None in (estimates, statistics, quote):
+                print("Cannot fetch data for", ticker)
+                continue
                     
             stock = {
                 'Ticker'        : quote["symbol"],
