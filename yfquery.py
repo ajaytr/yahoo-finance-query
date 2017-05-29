@@ -1,7 +1,6 @@
-import urllib.request
-import simplejson as json
 import prettytable
-
+import simplejson as json
+import requests
 
 class YFQuery:
     YFQUERY_DEBUG = False
@@ -10,16 +9,8 @@ class YFQuery:
         self.stockTickerList = stockTickerList
         self.resultList = []
         YFQuery.YFQUERY_DEBUG = verbose
-        
-        
-    def __fetch(self, url):
-        """ Private function to fetch data from given URL """
-        req = urllib.request.Request(url)
-        data = json.loads(urllib.request.urlopen(req).read())
-        print(json.dumps(data, sort_keys=True, indent=4 * ' ')) if YFQuery.YFQUERY_DEBUG else 0
-        return data
-    
-    
+
+
     def __convertToFloat(self, strNum):
         """ Some Yahoo Finance numbers end with B or M.  Convert to the
             appropriate floating pt value """
@@ -63,40 +54,21 @@ class YFQuery:
         print(table.get_string(sortby="Ticker"))
 
 
-    def requestAnalystEstimates(self, stockTicker):
-        """ Form a Yahoo Finance Query for Analyst Estimates data in the REST format """
-        
-        url = "http://query.yahooapis.com/v1/public/yql?q=SELECT%20*%20FROM%20yahoo.finance.analystestimate%20WHERE%20symbol%3D'{0}'&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=".format(stockTicker)
-        data = self.__fetch(url)
-        try:
-            if "results" in data["query"]["results"]:
-                return data["query"]["results"]["results"]
-        except:
-            print("Problem acquiring Analyst Estimates for", stockTicker)
-            return None
-    
-    
-    def requestKeyStatistics(self, stockTicker):
-        """ Form a Yahoo Finance Query for Key Statistics data in the REST format """
-    
-        url = "http://query.yahooapis.com/v1/public/yql?q=SELECT%20*%20FROM%20yahoo.finance.keystats%20WHERE%20symbol%3D'{0}'&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=".format(stockTicker)
-        data = self.__fetch(url)
-        try:
-            if "stats" in data["query"]["results"]:
-                return data["query"]["results"]["stats"]
-        except:
-            print("Problem acquiring Key Statistics for", stockTicker)
-            return None
-
-
     def requestQuoteData(self, stockTicker):
         """ Form a Yahoo Finance Query for Quote data in the REST format """
-        
-        url = "http://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20yahoo.finance.quote%20where%20symbol%3D'{0}'&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback=".format(stockTicker)
-        data = self.__fetch(url)
+
+        req_url = 'https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20yahoo.finance.quotes%20where%20symbol%20in%20(%22{}%22)&format=json&env=store%3A%2F%2Fdatatables.org%2Falltableswithkeys&callback='.format(stockTicker)
+
+        req = requests.Request(method='GET', url=req_url)
+        prepared = req.prepare();
+        req_session = requests.Session()
+        data = req_session.send(prepared)
+        jdata = json.loads(data.text)
+        print(json.dumps(jdata, sort_keys=True, indent=4 * ' ')) if YFQuery.YFQUERY_DEBUG else 0
+
         try:
-            if "quote" in data["query"]["results"]:
-                return data["query"]["results"]["quote"]
+            if "quote" in jdata["query"]["results"]:
+                return jdata["query"]["results"]["quote"]
         except:
             print("Problem acquiring Quote Data for", stockTicker)
             return None
@@ -108,22 +80,20 @@ class YFQuery:
         for ticker in self.stockTickerList:
             print("Acquiring data for: ", ticker) if YFQuery.YFQUERY_DEBUG else 0
 
-            estimates = self.requestAnalystEstimates(ticker)
-            statistics = self.requestKeyStatistics(ticker)
             quote = self.requestQuoteData(ticker)
-            if None in (estimates, statistics, quote):
+            if None in (quote):
                 print("Cannot fetch data for", ticker)
                 continue
-                    
+
             stock = {
                 'Ticker'        : quote["symbol"],
                 'ClosingPrice'  : float(quote["LastTradePriceOnly"]),
-                'MarketCap'     : float(statistics["MarketCap"]["content"]),
-                'CurrentPE'     : float(quote["LastTradePriceOnly"]) / float(estimates["EarningsEst"]["AvgEstimate"]["CurrentYear"]),
-                'ForwardPE'     : float(quote["LastTradePriceOnly"]) / float(estimates["EarningsEst"]["AvgEstimate"]["NextYear"]),
-                'CurrentPS'     : float(statistics["MarketCap"]["content"]) / self.__convertToFloat(estimates["RevenueEst"]["AvgEstimate"]["CurrentYear"]),
-                'ForwardPS'     : float(statistics["MarketCap"]["content"]) / self.__convertToFloat(estimates["RevenueEst"]["AvgEstimate"]["NextYear"]),
-                'ROA'           : statistics["ReturnonAssets"]["content"],
-                'ROE'           : statistics["ReturnonEquity"]["content"]
+                'MarketCap'     : self.__convertToFloat(quote["MarketCapitalization"]),
+                'CurrentPE'     : self.__convertToFloat(quote["PERatio"]),
+                'ForwardPE'     : self.__convertToFloat(quote["PriceEPSEstimateNextYear"]),
+                'CurrentPS'     : self.__convertToFloat(quote["PriceSales"]),
+                'ForwardPS'     : 0,
+                'ROA'           : 0,
+                'ROE'           : 0
             }
             self.resultList.append(stock)
